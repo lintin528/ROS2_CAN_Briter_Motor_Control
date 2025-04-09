@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'keyboard = can_bus.keyboard_control:main',
+            'writer = can_bus.can_writer:main',
         ],
     },
 )

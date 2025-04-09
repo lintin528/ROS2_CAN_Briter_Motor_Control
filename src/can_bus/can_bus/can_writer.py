@@ -1,4 +1,5 @@
 import rclpy
+import time
 import threading
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
@@ -18,28 +19,27 @@ class CANWriter(Node):
         self.subscription
 
         try:
-            self.bus = can.interface.Bus(channel='can0', bustype='socketcan')
+            # self.bus = can.interface.Bus(channel='can0', bustype='socketcan')
             self.get_logger().info("CAN bus initialized.")
         except Exception as e:
             self.get_logger().error(f"CAN init failed: {e}")
             self.bus = None
 
     def _keyboard_callback(self, msg: Float32MultiArray):
-        if self.bus is None:
-            self.get_logger().warn("CAN bus not initialized.")
-            return
+        # if self.bus is None:
+        #     self.get_logger().warn("CAN bus not initialized.")
+        #     return
 
         for i, val in enumerate(msg.data):
             try:
                 speed_bytes = int(val).to_bytes(4, byteorder='big', signed=True)
                 command_flag = bytes([0x02]) # Command flag for setting speed
-
                 data_bytes = command_flag + speed_bytes
                 can_msg = can.Message(arbitration_id=0x00 + i,
                                       data=data_bytes,
                                       is_extended_id=False)
-                self.bus.send(can_msg)
-                self.get_logger().info(f"Sent CAN msg ID {hex(0x100 + i)}: {data_bytes}")
+                # self.bus.send(can_msg)
+                self.get_logger().info(f"Sent CAN msg ID {hex(0x00 + i)}: {data_bytes.hex()}")
             except Exception as e:
                 self.get_logger().error(f"Failed to send CAN msg: {e}")
 
@@ -58,6 +58,8 @@ def main(args=None):
         # Start the executor in a separate thread
         executor_thread = threading.Thread(target=executor.spin, daemon=True)
         executor_thread.start()
+        while rclpy.ok():
+            time.sleep(0.1)
     except KeyboardInterrupt:
         pass
     finally:
