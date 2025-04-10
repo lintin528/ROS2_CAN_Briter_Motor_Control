@@ -2,6 +2,7 @@ import rclpy
 import time
 import threading
 import serial
+import copy
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
 from rclpy.executors import MultiThreadedExecutor
@@ -24,8 +25,34 @@ class CANWriter(Node):
             baudrate=CAN_BAUDRATE,
             timeout=CAN_TIMEOUT
         )
-        self.subscription
         self.init_can_module()
+        self.timer_period = 0.1
+        self.heartbeat_timer = self.create_timer(self.timer_period, self.timer_callback)
+        self.subscription
+        
+
+    def timer_callback(self):
+            can_id = WHEEL_CAN_IDS[0]
+            heart_bytes = int(0).to_bytes(1, byteorder='big', signed=True)
+
+            frame = bytearray()
+            frame.append(0xAA)  # Start byte
+
+            info_byte = 0xC0
+            info_byte |= len(heart_bytes)  # DLC
+            frame.append(info_byte)
+
+            # ID (2 bytes)
+            frame.append(can_id & 0xFF)     # LSB
+            frame.append((can_id >> 8) & 0xFF)  # MSB
+
+            # Data
+            frame.extend(heart_bytes)
+            frame.append(0x55)  # End byte
+            self.ser.write(frame)
+
+            hex_str = ' '.join(f'{b:02X}' for b in frame)
+            self.get_logger().info(f'Sent CAN frame: {hex_str} with CAN ID: {can_id}')   
 
     def init_can_module(self):
         frame = [
@@ -48,38 +75,35 @@ class CANWriter(Node):
             return
 
         for i, val in enumerate(msg.data):
-            try:
-                if(self.cur_speed[i] != val):
-                    can_id = WHEEL_CAN_IDS[i]
-                    speed_bytes = int(val).to_bytes(4, byteorder='big', signed=True)
+            if(self.cur_speed[i] != val):
+                can_id = WHEEL_CAN_IDS[i]
+                speed_bytes = int(val).to_bytes(4, byteorder='big', signed=True)
+                speed_bytes = bytes([0x02]) + speed_bytes
+                if len(speed_bytes) > 8:
+                    self.get_logger().warn('Too much CAN data, truncating to 8 bytes')
+                    speed_bytes = speed_bytes[:8]
 
-                    if len(speed_bytes) > 8:
-                        self.get_logger().warn('Too much CAN data, truncating to 8 bytes')
-                        speed_bytes = speed_bytes[:8]
+                frame = bytearray()
+                frame.append(0xAA)  # Start byte
 
-                    frame = bytearray()
-                    frame.append(0xAA)  # Start byte
+                info_byte = 0xC0
+                info_byte |= len(speed_bytes)  # DLC
+                frame.append(info_byte)
 
-                    info_byte = 0xC0
-                    info_byte |= len(speed_bytes)  # DLC
-                    frame.append(info_byte)
+                # ID (2 bytes)
+                frame.append(can_id & 0xFF)     # LSB
+                frame.append((can_id >> 8) & 0xFF)  # MSB
 
-                    # ID (2 bytes)
-                    frame.append(can_id & 0xFF)     # LSB
-                    frame.append((can_id >> 8) & 0xFF)  # MSB
+                # Data
+                frame.extend(speed_bytes)
+                frame.append(0x55)  # End byte
 
-                    # Data
-                    frame.extend(speed_bytes)
-                    frame.append(0x55)  # End byte
+                self.ser.write(frame)
+                self.cur_speed[i] = val
 
-                    self.ser.write(frame)
-                    self.cur_speed[i] = val
-
-                    # Debug print
-                    hex_str = ' '.join(f'{b:02X}' for b in frame)
-                    self.get_logger().info(f'Sent CAN frame: {hex_str} with CAN ID: {can_id}')
-        except Exception as e:
-            self.get_logger().error(f"Error processing CAN message: {e}")     
+                # Debug print
+                hex_str = ' '.join(f'{b:02X}' for b in frame)
+                self.get_logger().info(f'Sent CAN frame: {hex_str} with CAN ID: {can_id}')   
             
 def main(args=None):
     rclpy.init(args=args)

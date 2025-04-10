@@ -84,11 +84,13 @@ elif [ "$ARCH" = "x86_64" ] || ([ "$ARCH" = "arm64" ] && [ "$OS" = "Darwin" ]); 
     else
         echo "Trying to run with GPU support..."
         docker run -it --rm \
+            --privileged \
             --network compose_my_bridge_network \
             $PORT_MAPPING \
             $GPU_FLAGS \
             $device_options \
             --env-file .env \
+            -v /dev:/dev \
             -v "$(pwd)/src:/workspaces/src" \
             -v "$(pwd)/screenshots:/workspaces/screenshots" \
             ghcr.io/screamlab/pros_car_docker_image:latest \
@@ -98,8 +100,10 @@ elif [ "$ARCH" = "x86_64" ] || ([ "$ARCH" = "arm64" ] && [ "$OS" = "Darwin" ]); 
         if [ $? -ne 0 ]; then
             echo "GPU not supported or failed, falling back to CPU mode..."
             docker run -it --rm \
+                --privileged \
                 --network compose_my_bridge_network \
                 $PORT_MAPPING \
+                -v /dev:/dev \
                 --env-file .env \
                 $device_options \
                 -v "$(pwd)/src:/workspaces/src" \
