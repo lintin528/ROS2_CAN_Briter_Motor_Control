@@ -1,15 +1,17 @@
 import rclpy
 import time
 import threading
+import serial
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
 from rclpy.executors import MultiThreadedExecutor
-import serial
+from can_bus.params import *
+
 
 class CANWriter(Node):
     def __init__(self):
         super().__init__('can_subscriber')
-
+        self.cur_speed: list = copy.deepcopy(DEFAULT_FOUR_WHEEL_SPEED)
         self.subscription = self.create_subscription(
             Float32MultiArray,
             'four_wheel_speed',
@@ -19,18 +21,11 @@ class CANWriter(Node):
 
         self.ser = serial.Serial(
             port='/dev/ttyUSB0',
-            baudrate=2000000,
-            timeout=0.1
+            baudrate=CAN_BAUDRATE,
+            timeout=CAN_TIMEOUT
         )
         self.subscription
         self.init_can_module()
-
-        # try:
-        #     self.bus = can.interface.Bus(channel='can0', bustype='socketcan')
-        #     self.get_logger().info("CAN bus initialized.")
-        # except Exception as e:
-        #     self.get_logger().error(f"CAN init failed: {e}")
-        #     self.bus = None
 
     def init_can_module(self):
         frame = [
@@ -52,49 +47,40 @@ class CANWriter(Node):
             self.get_logger().warn('Empty CAN message received')
             return
 
-        can_id = msg.data[0]
-        data = msg.data[1:]
+        for i, val in enumerate(msg.data):
+            try:
+                if(self.cur_speed[i] != val):
+                    can_id = WHEEL_CAN_IDS[i]
+                    speed_bytes = int(val).to_bytes(4, byteorder='big', signed=True)
 
-        if len(data) > 8:
-            self.get_logger().warn('Too much CAN data, truncating to 8 bytes')
-            data = data[:8]
+                    if len(speed_bytes) > 8:
+                        self.get_logger().warn('Too much CAN data, truncating to 8 bytes')
+                        speed_bytes = speed_bytes[:8]
 
-        frame = bytearray()
-        frame.append(0xAA)  # Start byte
+                    frame = bytearray()
+                    frame.append(0xAA)  # Start byte
 
-        info_byte = 0xC0
-        info_byte |= len(data)  # DLC
-        frame.append(info_byte)
+                    info_byte = 0xC0
+                    info_byte |= len(speed_bytes)  # DLC
+                    frame.append(info_byte)
 
-        # ID (2 bytes)
-        frame.append(can_id & 0xFF)     # LSB
-        frame.append((can_id >> 8) & 0xFF)  # MSB
+                    # ID (2 bytes)
+                    frame.append(can_id & 0xFF)     # LSB
+                    frame.append((can_id >> 8) & 0xFF)  # MSB
 
-        # Data
-        frame.extend(data)
+                    # Data
+                    frame.extend(speed_bytes)
+                    frame.append(0x55)  # End byte
 
-        frame.append(0x55)  # End byte
+                    self.ser.write(frame)
+                    self.cur_speed[i] = val
 
-        self.ser.write(frame)
-
-        # Debug print
-        hex_str = ' '.join(f'{b:02X}' for b in frame)
-        self.get_logger().info(f'Sent CAN frame: {hex_str}')
-
-        # for i, val in enumerate(msg.data):
-        #     try:
-        #         speed_bytes = int(val).to_bytes(4, byteorder='big', signed=True)
-        #         command_flag = bytes([0x02]) # Command flag for setting speed
-        #         data_bytes = command_flag + speed_bytes
-        #         can_msg = can.Message(arbitration_id=0x00 + i,
-        #                               data=data_bytes,
-        #                               is_extended_id=False)
-        #         self.bus.send(can_msg)
-        #         self.get_logger().info(f"Sent CAN msg ID {hex(0x00 + i)}: {data_bytes.hex()}")
-        #     except Exception as e:
-        #         self.get_logger().error(f"Failed to send CAN msg: {e}")
-
-
+                    # Debug print
+                    hex_str = ' '.join(f'{b:02X}' for b in frame)
+                    self.get_logger().info(f'Sent CAN frame: {hex_str} with CAN ID: {can_id}')
+        except Exception as e:
+            self.get_logger().error(f"Error processing CAN message: {e}")     
+            
 def main(args=None):
     rclpy.init(args=args)
 
