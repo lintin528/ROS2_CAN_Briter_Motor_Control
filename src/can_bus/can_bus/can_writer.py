@@ -78,7 +78,7 @@ class CANWriter(Node):
             if(self.cur_speed[i] != val):
                 can_id = WHEEL_CAN_IDS[i]
                 speed_bytes = int(val).to_bytes(4, byteorder='big', signed=True)
-                speed_bytes = bytes(CAN_INSTRUCTION_BYTE_SPEED) + speed_bytes
+                speed_bytes = bytes(CAN_INSTRUCTION_BYTE_SETSPEED) + speed_bytes
                 if len(speed_bytes) > 8:
                     self.get_logger().warn('Too much CAN data, truncating to 8 bytes')
                     speed_bytes = speed_bytes[:8]
