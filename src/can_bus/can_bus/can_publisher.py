@@ -1,5 +1,6 @@
 import rclpy
 import threading
+import time
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
 from rclpy.executors import MultiThreadedExecutor
@@ -10,9 +11,10 @@ class CANPublisher(Node):
         self.topic_name = 'four_wheel_speed'
         self._four_wheel_speed_publisher = self.create_publisher(Float32MultiArray, self.topic_name, 10)
 
-    def publish_can_msg(self, four_wheel_speed_msg:list):
+    def publish_can_msg(self, four_wheel_speed_msg:list, delay:float=0.0):
         msg = Float32MultiArray()
         msg.data = four_wheel_speed_msg
+        time.sleep(delay)
         self._four_wheel_speed_publisher.publish(msg)
         self.get_logger().info(f'Published: {msg.data}')
 

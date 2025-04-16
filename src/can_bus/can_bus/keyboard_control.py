@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from rclpy.node import Node
 from std_msgs.msg import String
 from can_bus.can_publisher import *
+from can_bus.can_reader import *
 from can_bus.params import *
 from can_bus.utils import *
 
@@ -37,9 +38,14 @@ class NormalState(State):
             self.tui.select_next_item()
         elif bool(KEY_MAP[key] & KEY_MAP[KEY_ENTER]):
             if bool(self.tui.cur_sel & PanelSelect.SPEED):
+                self.tui.from_readmode_flag = False
                 self.tui.change_state(SelectWheelState)
             elif bool(self.tui.cur_sel & PanelSelect.POS):
+                self.tui.from_readmode_flag = False
                 self.tui.change_state(SelectWheelState)
+            elif bool(self.tui.cur_sel & PanelSelect.INQUIRY):
+                self.tui.from_readmode_flag = True
+                self.tui.change_state(ReadMotorState)
         elif bool(KEY_MAP[key] & KEY_MAP[KEY_ESC]):
             self.tui.change_state(ExitState)
 
@@ -64,7 +70,10 @@ class SelectWheelState(State):
             return
 
         if bool(KEY_MAP[key] & KEY_MAP[KEY_ESC]):
-            self.tui.change_state(NormalState)
+            if bool(self.tui.from_readmode_flag):
+                self.tui.change_state(ReadMotorState)
+            else:
+                self.tui.change_state(NormalState)
         elif bool(KEY_MAP[key] & KEY_MAP[KEY_ENTER]):
             self.tui.change_state(ControlJointState)
         elif bool(KEY_MAP[key] & KEY_MAP[curses.KEY_UP]):
@@ -77,7 +86,8 @@ class SelectWheelState(State):
         self.tui.display_single(stdscr, STATE_POS, "Panel State: Select Joint State")
         self.tui.display_menu(stdscr)
         self.tui.display_sel_wheel(stdscr)
-
+        if self.tui.from_readmode_flag:
+            self.tui.display_readmode(stdscr)
 class ControlJointState(State):
     # override
     def handle_input(self, key):
@@ -90,9 +100,14 @@ class ControlJointState(State):
             self.tui.increase_wheel()
         elif bool(KEY_MAP[key] & KEY_MAP[curses.KEY_DOWN]):
             self.tui.decrease_wheel()
+        elif bool((KEY_MAP[key] & KEY_MAP[KEY_ENTER]) and self.tui.from_readmode_flag):
+            # self.tui.can_reader.send_encoder_inquiry(self.tui.cur_sel_read_type)
+            # time.sleep(1.0)
+            # self.tui.can_msg_publisher.publish_can_msg(self.tui.cur_sel_wheel_speed)
+            self.tui.change_state(ReadingState)
 
         # Publish data
-        if bool(KEY_MAP[key] & (KEY_MAP[curses.KEY_UP] | KEY_MAP[curses.KEY_DOWN])):
+        if bool(KEY_MAP[key] & (KEY_MAP[curses.KEY_UP] | KEY_MAP[curses.KEY_DOWN]) & (not self.tui.from_readmode_flag)):
             self.tui.can_msg_publisher.publish_can_msg(self.tui.cur_sel_wheel_speed)
             self.tui.msg_cnt += 1
 
@@ -101,9 +116,56 @@ class ControlJointState(State):
         self.tui.display_single(stdscr, STATE_POS, "Panel State: Control Joint State")
         self.tui.display_menu(stdscr)
         self.tui.display_control_wheel(stdscr)
+        if self.tui.from_readmode_flag:
+            self.tui.display_readmode(stdscr)
+
+class ReadMotorState(State):
+    # override
+    def handle_input(self, key):
+        if key not in KEY_MAP:
+            return
+
+        if bool(KEY_MAP[key] & KEY_MAP[KEY_ESC]):
+            self.tui.change_state(NormalState)
+        elif bool(KEY_MAP[key] & KEY_MAP[curses.KEY_UP]):
+            self.tui.select_prev_type()
+        elif bool(KEY_MAP[key] & KEY_MAP[curses.KEY_DOWN]):
+            self.tui.select_next_type()
+        elif bool(KEY_MAP[key] & KEY_MAP[KEY_ENTER]):
+            if bool(self.tui.cur_sel_read_type & ReadModeSelect.SPEED):
+                self.tui.change_state(SelectWheelState)
+            elif bool(self.tui.cur_sel_read_type & ReadModeSelect.POS):
+                self.tui.change_state(SelectWheelState)
+
+    # override
+    def render(self, stdscr):
+        self.tui.display_single(stdscr, STATE_POS, "Panel State: Select Read Motor State")
+        self.tui.display_menu(stdscr)
+        self.tui.display_modes(stdscr)
+
+class ReadingState(State):
+    # override
+    def handle_input(self, key):
+        if key not in KEY_MAP:
+            return
+
+        if bool(KEY_MAP[key] & KEY_MAP[KEY_ESC]):
+            self.tui.change_state(ControlJointState)
+        elif bool((KEY_MAP[key] & KEY_MAP[KEY_ENTER]) and self.tui.from_readmode_flag):
+            self.tui.can_reader.send_encoder_inquiry(self.tui.cur_sel_read_type, self.tui.cur_sel_wheel_speed)
+            time.sleep(1.0)
+            self.tui.can_msg_publisher.publish_can_msg(self.tui.cur_sel_wheel_speed)
+
+    # override
+    def render(self, stdscr):
+        self.tui.display_single(stdscr, STATE_POS, "Panel State: Reading State")
+        # self.tui.display_menu(stdscr)
+        self.tui.display_encoder_value(stdscr, STATE_POS + 2)
+        if self.tui.from_readmode_flag:
+            self.tui.display_readmode(stdscr)
 
 class TUI:
-    def __init__(self, can_msg_publisher_: CANPublisher):
+    def __init__(self, can_msg_publisher_: CANPublisher, can_reader_: CANReader):
         self.state: State = NormalState(self)
         self.key: int = 0
 
@@ -117,6 +179,8 @@ class TUI:
         self.cur_sel_wheel_speed_min: list = MIN_FOUR_WHEEL_SPEED
         self.cur_sel_wheel_speed_max: list = MAX_FOUR_WHEEL_SPEED
 
+        self.cur_sel_read_type: ReadModeSelect = ReadModeSelect.SPEED
+        self.from_readmode_flag: bool = False
         # Parameter settings
         self.step: float = DEFAULT_WHEEL_MOVE_STEP_VEL
 
@@ -124,6 +188,7 @@ class TUI:
         self.can_msg_publisher: CANPublisher = can_msg_publisher_
         self.msg_cnt: int = 0
 
+        self.can_reader: CANReader = can_reader_
         # Publish the initial joint angles
         self.can_msg_publisher.publish_can_msg(self.cur_sel_wheel_speed)
         self.msg_cnt += 1
@@ -137,6 +202,8 @@ class TUI:
             stdscr, y_position, f"Four wheel speed: {self.cur_speed}", self.cur_sel == PanelSelect.SPEED)
         self.display_single(
             stdscr, y_position + 1, f"Four wheel POS: {self.cur_pos}", self.cur_sel == PanelSelect.POS)
+        self.display_single(
+            stdscr, y_position + 2, f"Inquiry", self.cur_sel == PanelSelect.INQUIRY)
 
     def display_sel_wheel(self, stdscr, y_position: int = CONTROL_POS):
         # Highlight the active element in the current array
@@ -149,10 +216,21 @@ class TUI:
         for i, val in enumerate(self.cur_sel_wheel_speed):
             if i == self.cur_sel_wheel:
                 self.display_single(
-                    stdscr, y_position + i, f"--> Wheel {i + 1} velocity: {val} <--", True)
+                    stdscr, y_position + i, f"--> Wheel {i + 1}: {val} <--", True)
             else:
                 self.display_single(
-                    stdscr, y_position + i, f"Wheel {i + 1} velocity: {val}", False)
+                    stdscr, y_position + i, f"Wheel {i + 1}: {val}", False)
+
+    def display_readmode(self, stdscr, y_position: int = READ_POS):
+        self.display_single(stdscr, y_position, "Read mode", False)
+
+    def display_modes(self, stdscr, y_position: int = CONTROL_POS):
+        for i, val in enumerate(ReadModeSelect):
+            self.display_single(stdscr, y_position + i, f"Read type: {val.name}", val == self.cur_sel_read_type)
+    
+    def display_encoder_value(self, stdscr, y_position: int = CONTROL_POS):
+        for i, val in enumerate(self.can_reader.encoder_cur_speed):
+            self.display_single(stdscr, y_position + i, f"Wheel {i + 1} speed: {val}", False)
 
     def select_prev_item(self):
         self.cur_sel = prev_bitwise_enum(self.cur_sel, PanelSelect)
@@ -171,6 +249,14 @@ class TUI:
     def select_next_wheel(self):
         self.cur_sel_wheel = (
             self.cur_sel_wheel + 1) % DEFAULT_WHEEL_NUMBER
+
+    def select_prev_type(self):
+        self.cur_sel_read_type = prev_bitwise_enum(
+            self.cur_sel_read_type, ReadModeSelect)
+
+    def select_next_type(self):
+        self.cur_sel_read_type = next_bitwise_enum(
+            self.cur_sel_read_type, ReadModeSelect)
     
     def increase_wheel(self):
         self.cur_sel_wheel_speed[self.cur_sel_wheel] = min(
@@ -194,27 +280,31 @@ class TUI:
             key = stdscr.getch()
             self.state.handle_input(key)
 
-def curses_main(stdscr, can_msg_publisher: CANPublisher):
-    panel = TUI(can_msg_publisher)
+def curses_main(stdscr, can_msg_publisher: CANPublisher, can_reader: CANReader):
+    panel = TUI(can_msg_publisher, can_reader)
     panel.run(stdscr)
 
 def main(args=None):
     rclpy.init(args=args)
     can_msg_publisher = CANPublisher()
+    can_reader = CANReader()
 
     executor = MultiThreadedExecutor()
     executor.add_node(can_msg_publisher)
+    executor.add_node(can_reader)
 
-    spin_thread = threading.Thread(target=rclpy.spin, args=(can_msg_publisher,), daemon=True)
+    spin_thread = threading.Thread(target=executor.spin, daemon=True)
     spin_thread.start()
     try:
         curses.set_escdelay(25)
-        curses.wrapper(curses_main, can_msg_publisher)
+        curses.wrapper(curses_main, can_msg_publisher, can_reader)
     except KeyboardInterrupt:
         pass
     finally:
         can_msg_publisher.destroy_node()
         can_msg_publisher.get_logger().info(f'Quit keyboard!')
+        can_reader.destroy_node()
+        can_reader.get_logger().info(f'Quit keyboard!')
         rclpy.shutdown()
         spin_thread.join()  # Ensure the spin thread is cleanly stopped
 
