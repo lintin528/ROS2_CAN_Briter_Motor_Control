@@ -44,6 +44,16 @@ class PanelSelect(IntEnum):
     """
     SPEED = 0x00000001
     POS = 0x00000002
+    INQUIRY = 0x00000004
+    ALL = 0x7fffffff
+
+class ReadModeSelect(IntEnum):
+    """Declare the enum for option of ReadMode panel
+    The items must be sorted.
+    The ALL bitmask is also included but is not meant to be set.
+    """
+    SPEED = 0x00000001
+    POS = 0x00000002
     ALL = 0x7fffffff
 
 def count_trailing_zeros_bitwise(n: int) -> int:
