@@ -172,4 +172,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
-.pyc
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
