@@ -152,10 +152,16 @@ class ReadingState(State):
         if bool(KEY_MAP[key] & KEY_MAP[KEY_ESC]):
             self.tui.change_state(ControlJointState)
         elif bool((KEY_MAP[key] & KEY_MAP[KEY_ENTER]) and self.tui.from_readmode_flag):
-            self.tui.can_reader.send_encoder_inquiry(self.tui.cur_sel_read_type, self.tui.cur_sel_wheel_speed)
+            # self.tui.can_reader.send_encoder_inquiry(self.tui.cur_sel_read_type)
+            threading.Thread(
+                target=self.tui.can_reader.send_encoder_inquiry,
+                args=(self.tui.cur_sel_read_type, self.tui.cur_sel_wheel_speed),
+                daemon=True
+            ).start()
             time.sleep(1.0)
+            self.tui.can_reader.target_value = copy.deepcopy(self.tui.cur_sel_wheel_speed)
             self.tui.can_msg_publisher.publish_can_msg(self.tui.cur_sel_wheel_speed)
-
+            
     # override
     def render(self, stdscr):
         self.tui.display_single(stdscr, STATE_POS, "Panel State: Reading State")
@@ -178,6 +184,9 @@ class TUI:
         self.cur_sel_wheel_speed: list = self.cur_speed
         self.cur_sel_wheel_speed_min: list = MIN_FOUR_WHEEL_SPEED
         self.cur_sel_wheel_speed_max: list = MAX_FOUR_WHEEL_SPEED
+
+        # value for reader
+        self.last_target_speed: list = copy.deepcopy(DEFAULT_FOUR_WHEEL_SPEED)
 
         self.cur_sel_read_type: ReadModeSelect = ReadModeSelect.SPEED
         self.from_readmode_flag: bool = False
