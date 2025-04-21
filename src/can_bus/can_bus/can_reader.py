@@ -56,8 +56,8 @@ class CANReader(Node):
             timestamp = time.time() - self.start_time
             self.writer.writerow([timestamp, self.encoder_cur_speed[can_id - 1], self.target_value[can_id - 1]])
 
-    def send_encoder_inquiry(self, mode: ReadModeSelect, target_value: list):
-        self.target_value = target_value
+    def send_encoder_inquiry(self, mode: ReadModeSelect):
+        # self.target_value = target_value
         self.timestamp_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
         self.file_name = f"{self.folder_path}/data_{self.timestamp_str}.csv"
         self.file = open(self.file_name, mode='w', newline='')
