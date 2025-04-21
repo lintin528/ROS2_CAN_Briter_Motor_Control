@@ -155,7 +155,7 @@ class ReadingState(State):
             # self.tui.can_reader.send_encoder_inquiry(self.tui.cur_sel_read_type)
             threading.Thread(
                 target=self.tui.can_reader.send_encoder_inquiry,
-                args=(self.tui.cur_sel_read_type, self.tui.cur_sel_wheel_speed),
+                args=(self.tui.cur_sel_read_type,),
                 daemon=True
             ).start()
             time.sleep(1.0)
@@ -169,6 +169,7 @@ class ReadingState(State):
         self.tui.display_encoder_value(stdscr, STATE_POS + 2)
         if self.tui.from_readmode_flag:
             self.tui.display_readmode(stdscr)
+        self.tui.display_ser_return(stdscr)
 
 class TUI:
     def __init__(self, can_msg_publisher_: CANPublisher, can_reader_: CANReader):
@@ -219,6 +220,10 @@ class TUI:
         for i, val in enumerate(self.cur_sel_wheel_speed):
             self.display_single(
                 stdscr, y_position + i, f"Wheel {i + 1}: {val}", i == self.cur_sel_wheel)
+
+    def display_ser_return(self, stdscr, y_position: int = CONTROL_POS):
+        self.display_single(
+                stdscr, 7, self.can_reader.return_ser, False)
 
     def display_control_wheel(self, stdscr, y_position: int = CONTROL_POS):
         # Highlight the active element in the current array
