@@ -156,7 +156,7 @@ class ReadingState(State):
             threading.Thread(
                 target=self.tui.can_reader.send_encoder_inquiry,
                 args=(self.tui.cur_sel_read_type,),
-                daemon=True
+                daemon=False
             ).start()
             time.sleep(1.0)
             self.tui.can_reader.target_value = copy.deepcopy(self.tui.cur_sel_wheel_speed)

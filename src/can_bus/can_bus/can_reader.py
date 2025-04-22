@@ -104,7 +104,7 @@ class CANReader(Node):
             time.sleep(CAN_INQUIRY_FREQUENCY)
     
     def start_read_thread(self):
-        self.read_thread = threading.Thread(target=self.read_loop, daemon=True)
+        self.read_thread = threading.Thread(target=self.read_loop, daemon=False)
         self.read_thread.start()
 
     def read_loop(self):
