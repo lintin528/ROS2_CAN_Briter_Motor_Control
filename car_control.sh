@@ -92,6 +92,7 @@ elif [ "$ARCH" = "x86_64" ] || ([ "$ARCH" = "arm64" ] && [ "$OS" = "Darwin" ]); 
             --env-file .env \
             -v /dev:/dev \
             -v "$(pwd)/src:/workspaces/src" \
+            -v "$(pwd)/data:/workspaces/data" \
             -v "$(pwd)/screenshots:/workspaces/screenshots" \
             ghcr.io/screamlab/pros_car_docker_image:latest \
             /bin/bash
@@ -107,6 +108,7 @@ elif [ "$ARCH" = "x86_64" ] || ([ "$ARCH" = "arm64" ] && [ "$OS" = "Darwin" ]); 
                 --env-file .env \
                 $device_options \
                 -v "$(pwd)/src:/workspaces/src" \
+                -v "$(pwd)/data:/workspaces/data" \
                 -v "$(pwd)/screenshots:/workspaces/screenshots" \
                 ghcr.io/screamlab/pros_car_docker_image:latest \
                 /bin/bash
