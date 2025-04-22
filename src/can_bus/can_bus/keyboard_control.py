@@ -151,6 +151,7 @@ class ReadingState(State):
 
         if bool(KEY_MAP[key] & KEY_MAP[KEY_ESC]):
             self.tui.change_state(ControlJointState)
+            self.tui.reading_refresh_flag = False
         elif bool((KEY_MAP[key] & KEY_MAP[KEY_ENTER]) and self.tui.from_readmode_flag):
             # self.tui.can_reader.send_encoder_inquiry(self.tui.cur_sel_read_type)
             threading.Thread(
@@ -158,6 +159,7 @@ class ReadingState(State):
                 args=(self.tui.cur_sel_read_type,),
                 daemon=False
             ).start()
+            self.tui.reading_refresh_flag = True
             time.sleep(1.0)
             self.tui.can_reader.target_value = copy.deepcopy(self.tui.cur_sel_wheel_speed)
             self.tui.can_msg_publisher.publish_can_msg(self.tui.cur_sel_wheel_speed)
@@ -202,6 +204,8 @@ class TUI:
         # Publish the initial joint angles
         self.can_msg_publisher.publish_can_msg(self.cur_sel_wheel_speed)
         self.msg_cnt += 1
+
+        self.reading_refresh_flag = False
 
     def display_single(self, stdscr, y_position: int, message: str, is_highlight: bool = False):
         style: int = curses.A_REVERSE if is_highlight else 0
@@ -291,8 +295,9 @@ class TUI:
             stdscr.clear()
             self.state.render(stdscr)
             stdscr.refresh()
-            key = stdscr.getch()
-            self.state.handle_input(key)
+            if (self.reading_refresh_flag == False):
+                key = stdscr.getch()
+                self.state.handle_input(key)
 
 def curses_main(stdscr, can_msg_publisher: CANPublisher, can_reader: CANReader):
     panel = TUI(can_msg_publisher, can_reader)
