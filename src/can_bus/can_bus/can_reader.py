@@ -62,7 +62,7 @@ class CANReader(Node):
             )
 
             # CSV 寫入
-            with open(self.file_name, mode='w', newline='') as f:
+            with open(self.file_name, mode='a', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow([timestamp, speed_val, target])
 
