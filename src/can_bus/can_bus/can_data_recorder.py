@@ -15,21 +15,26 @@ from can_bus.can_publisher import *
 class CANRecorder(Node):
     def __init__(self, _can_msg_publisher: CANPublisher, _can_reader: CANReader):
         super().__init__('can_recorder')
+        self.get_logger().info(f'recorder start!')
         self.record_period = 15
-        self.target_speed = [10, 0, 0, 0]
+        self.target_speed = [1000.0, 0.0, 0.0, 0.0]
         self.init_speed = copy.deepcopy(DEFAULT_FOUR_WHEEL_SPEED)
         self.can_msg_publisher = _can_msg_publisher
-        self.can_reader = can_reader
+        self.can_reader = _can_reader
+        self.counter = 0
         self._timer = self.create_timer(self.record_period, self.timer_callback)
 
     def timer_callback(self):
+        self.get_logger().info(f'collect start num {self.counter}')
+        self.counter += 1
         self.can_msg_publisher.publish_can_msg(self.init_speed)
+        self.can_reader.target_value = copy.deepcopy(self.init_speed)
         time.sleep(1.0)
         threading.Thread(
-            target=self.can_reader.send_encoder_inquiry,
-            args=(ReadModeSelect.SPEED,),
-            daemon=False
-        ).start()
+                target=self.can_reader.send_encoder_inquiry,
+                args=(ReadModeSelect.SPEED,),
+                daemon=False
+            ).start()
         time.sleep(1.0)
         self.can_reader.target_value = copy.deepcopy(self.target_speed)
         self.can_msg_publisher.publish_can_msg(self.target_speed)
@@ -41,16 +46,19 @@ def main(args=None):
         # Create the node
         can_msg_publisher = CANPublisher()
         can_reader = CANReader()
-        can_recorder = CANRecorder(can_msg_publisher, can_reader)
+        
         # Use a MultiThreadedExecutor to support threading in nodes
         executor = MultiThreadedExecutor()
         executor.add_node(can_msg_publisher)
         executor.add_node(can_reader)
-        executor.add_node(can_recorder)
-
+        
         # Start the executor in a separate thread
         executor_thread = threading.Thread(target=executor.spin, daemon=True)
         executor_thread.start()
+
+        can_recorder = CANRecorder(can_msg_publisher, can_reader)
+        executor.add_node(can_recorder)
+        # rclpy.spin(can_recorder)
         while rclpy.ok():
             time.sleep(0.1)
     except KeyboardInterrupt:

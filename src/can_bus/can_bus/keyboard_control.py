@@ -172,6 +172,7 @@ class ReadingState(State):
         if self.tui.from_readmode_flag:
             self.tui.display_readmode(stdscr)
         self.tui.display_ser_return(stdscr)
+        time.sleep(0.5)
 
 class TUI:
     def __init__(self, can_msg_publisher_: CANPublisher, can_reader_: CANReader):

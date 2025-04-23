@@ -22,6 +22,7 @@ setup(
         'console_scripts': [
             'keyboard = can_bus.keyboard_control:main',
             'writer = can_bus.can_writer:main',
+            'recoder = can_bus.can_data_recorder:main',
         ],
     },
 )

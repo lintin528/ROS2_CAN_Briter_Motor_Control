@@ -15,7 +15,8 @@ from can_bus.utils import *
 
 class CANReader(Node):
     def __init__(self):
-        super().__init__('can_reader')
+        super().__init__('CAN_Reader')
+        self.get_logger().info(f'reader start!')
         self.encoder_cur_speed: list = copy.deepcopy(DEFAULT_FOUR_WHEEL_SPEED)
         self.encoder_cur_pos: list = copy.deepcopy(DEFAULT_FOUR_WHEEL_POS)
         self.ser = serial.Serial(
@@ -49,8 +50,8 @@ class CANReader(Node):
             can_id = (id_msb << 8) | id_lsb
 
             byte_val = list(self.ser.read(dlc))
-            speed_val = int.from_bytes(byte_val[2:6], byteorder='big', signed=False)
-            self.encoder_cur_speed[can_id - 1] = speed_val
+            speed_val = int.from_bytes(byte_val[2:6], byteorder='big', signed=True)
+            self.encoder_cur_speed[max(can_id - 1, 0)] = speed_val
 
             footer = self.ser.read(1)
             timestamp = time.time() - self.start_time
@@ -60,8 +61,7 @@ class CANReader(Node):
                 f"[RAW] header={header.hex()} info={info.hex()} id=0x{can_id:X} data={byte_val} "
                 f"footer={footer.hex()} | time={timestamp:.3f}s | speed={speed_val} | target={target} | index={can_id-1}"
             )
-
-            # CSV 寫入
+            print(self.return_ser)
             with open(self.file_name, mode='a', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow([timestamp, speed_val, target])

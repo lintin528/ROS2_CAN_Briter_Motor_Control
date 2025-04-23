@@ -8,6 +8,7 @@ from rclpy.executors import MultiThreadedExecutor
 class CANPublisher(Node):
     def __init__(self):
         super().__init__('CAN_Publisher')
+        self.get_logger().info(f'publisher start!')
         self.topic_name = 'four_wheel_speed'
         self._four_wheel_speed_publisher = self.create_publisher(Float32MultiArray, self.topic_name, 10)
 
