@@ -68,7 +68,6 @@ class CANReader(Node):
 
 
     def send_encoder_inquiry(self, mode: ReadModeSelect):
-        # self.target_value = target_value
         self.timestamp_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
         self.file_name = f"{self.folder_path}/data_{self.timestamp_str}.csv"
         self.file = open(self.file_name, mode='w', newline='')
@@ -110,7 +109,7 @@ class CANReader(Node):
     def read_loop(self):
         while rclpy.ok():
             self.read_can_response()
-            time.sleep(0.01)  # 小睡一下避免過度佔用 CPU
+            time.sleep(0.01)
 
 
 def main(args=None):

@@ -101,9 +101,6 @@ class ControlJointState(State):
         elif bool(KEY_MAP[key] & KEY_MAP[curses.KEY_DOWN]):
             self.tui.decrease_wheel()
         elif bool((KEY_MAP[key] & KEY_MAP[KEY_ENTER]) and self.tui.from_readmode_flag):
-            # self.tui.can_reader.send_encoder_inquiry(self.tui.cur_sel_read_type)
-            # time.sleep(1.0)
-            # self.tui.can_msg_publisher.publish_can_msg(self.tui.cur_sel_wheel_speed)
             self.tui.change_state(ReadingState)
 
         # Publish data
