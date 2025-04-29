@@ -104,7 +104,8 @@ class ControlJointState(State):
             self.tui.change_state(ReadingState)
 
         # Publish data
-        if bool(KEY_MAP[key] & (KEY_MAP[curses.KEY_UP] | KEY_MAP[curses.KEY_DOWN]) & (not self.tui.from_readmode_flag)):
+        # if bool((KEY_MAP[key] & KEY_MAP[curses.KEY_UP] | KEY_MAP[curses.KEY_DOWN]) & (not self.tui.from_readmode_flag)):
+        if (True):
             self.tui.can_msg_publisher.publish_can_msg(self.tui.cur_sel_wheel_speed)
             self.tui.msg_cnt += 1
 

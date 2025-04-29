@@ -52,7 +52,7 @@ class CANWriter(Node):
             self.ser.write(frame)
 
             hex_str = ' '.join(f'{b:02X}' for b in frame)
-            self.get_logger().info(f'Sent CAN frame: {hex_str} with CAN ID: {can_id}')   
+            # self.get_logger().info(f'Sent CAN frame: {hex_str} with CAN ID: {can_id}')   
 
     def init_can_module(self):
         frame = [
@@ -73,10 +73,10 @@ class CANWriter(Node):
         if len(msg.data) < 1:
             self.get_logger().warn('Empty CAN message received')
             return
-
+        print(msg.data)
         for i, val in enumerate(msg.data):
-            # if(self.cur_speed[i] != val):
-            if(True):
+            if(self.cur_speed[i] != val):
+            # if(True):
                 can_id = WHEEL_CAN_IDS[i]
                 speed_bytes = int(val).to_bytes(4, byteorder='big', signed=True)
                 speed_bytes = bytes(CAN_INSTRUCTION_BYTE_SETSPEED) + speed_bytes
