@@ -16,7 +16,7 @@ class CANRecorder(Node):
     def __init__(self, _can_msg_publisher: CANPublisher, _can_reader: CANReader):
         super().__init__('can_recorder')
         self.get_logger().info(f'recorder start!')
-        self.record_period = 15
+        self.record_period = 8
         self.target_speed = [1000.0, 0.0, 0.0, 0.0]
         self.init_speed = copy.deepcopy(DEFAULT_FOUR_WHEEL_SPEED)
         self.can_msg_publisher = _can_msg_publisher

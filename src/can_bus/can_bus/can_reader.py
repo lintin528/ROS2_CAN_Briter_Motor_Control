@@ -51,20 +51,26 @@ class CANReader(Node):
 
             byte_val = list(self.ser.read(dlc))
             speed_val = int.from_bytes(byte_val[2:6], byteorder='big', signed=True)
-            self.encoder_cur_speed[max(can_id - 1, 0)] = speed_val
+            try:
+                self.encoder_cur_speed[max(can_id - 1, 0)] = speed_val
+                footer = self.ser.read(1)
+                timestamp = time.time() - self.start_time
+                target = self.target_value[can_id - 1]
 
-            footer = self.ser.read(1)
-            timestamp = time.time() - self.start_time
-            target = self.target_value[can_id - 1]
+                self.return_ser = (
+                    f"[RAW] header={header.hex()} info={info.hex()} id=0x{can_id:X} data={byte_val} "
+                    f"footer={footer.hex()} | time={timestamp:.3f}s | speed={speed_val} | target={target} | index={can_id-1}"
+                )
+                print(self.return_ser)
+                if speed_val < 2000:
+                    with open(self.file_name, mode='a', newline='') as f:
+                        writer = csv.writer(f)
+                        writer.writerow([timestamp, speed_val, target])
+            except IndexError:
+                self.get_logger().error(f"CAN ID {can_id} is out of range for encoder_cur_speed list.")
+                pass
 
-            self.return_ser = (
-                f"[RAW] header={header.hex()} info={info.hex()} id=0x{can_id:X} data={byte_val} "
-                f"footer={footer.hex()} | time={timestamp:.3f}s | speed={speed_val} | target={target} | index={can_id-1}"
-            )
-            print(self.return_ser)
-            with open(self.file_name, mode='a', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow([timestamp, speed_val, target])
+            
 
 
     def send_encoder_inquiry(self, mode: ReadModeSelect):
