@@ -24,7 +24,7 @@ class CANReader(Node):
             baudrate=CAN_BAUDRATE,
             timeout=CAN_TIMEOUT
         )
-        self.folder_path = './data'
+        self.folder_path = './data_pos'
         self.timestamp_str = ""
         self.file_name = ""
         
@@ -69,9 +69,6 @@ class CANReader(Node):
             except IndexError:
                 self.get_logger().error(f"CAN ID {can_id} is out of range for encoder_cur_speed list.")
                 pass
-
-            
-
 
     def send_encoder_inquiry(self, mode: ReadModeSelect):
         self.timestamp_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')

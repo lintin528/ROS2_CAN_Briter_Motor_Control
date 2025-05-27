@@ -15,6 +15,10 @@ from can_bus.can_publisher import *
 class CANRecorder(Node):
     def __init__(self, _can_msg_publisher: CANPublisher, _can_reader: CANReader):
         super().__init__('can_recorder')
+        self.declare_parameter("mode", "speed")
+        self.mode = self.get_parameter("mode").get_parameter_value().string_value
+        self.get_logger().info(f"Using mode: {self.mode}")
+
         self.get_logger().info(f'recorder start!')
         self.record_period = 8
         self.target_speed = [1000.0, 0.0, 0.0, 0.0]
@@ -22,9 +26,27 @@ class CANRecorder(Node):
         self.can_msg_publisher = _can_msg_publisher
         self.can_reader = _can_reader
         self.counter = 0
-        self._timer = self.create_timer(self.record_period, self.timer_callback)
+        if self.mode == "pos":
+            self._timer = self.create_timer(self.record_period, self.timer_callback_pos)
+        else:
+            self._timer = self.create_timer(self.record_period, self.timer_callback)
 
     def timer_callback(self):
+        self.get_logger().info(f'collect start num {self.counter}')
+        self.counter += 1
+        self.can_msg_publisher.publish_can_msg(self.init_speed)
+        self.can_reader.target_value = copy.deepcopy(self.init_speed)
+        time.sleep(1.0)
+        threading.Thread(
+                target=self.can_reader.send_encoder_inquiry,
+                args=(ReadModeSelect.SPEED,),
+                daemon=False
+            ).start()
+        time.sleep(1.0)
+        self.can_reader.target_value = copy.deepcopy(self.target_speed)
+        self.can_msg_publisher.publish_can_msg(self.target_speed)
+
+    def timer_callback_pos(self):
         self.get_logger().info(f'collect start num {self.counter}')
         self.counter += 1
         self.can_msg_publisher.publish_can_msg(self.init_speed)
