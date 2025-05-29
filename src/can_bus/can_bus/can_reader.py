@@ -30,6 +30,7 @@ class CANReader(Node):
         
         self.start_time = time.time()
         self.target_value = [0.0] * len(WHEEL_CAN_IDS)
+        self.target_value_pos = 0.0
         if not os.path.exists(self.folder_path):
             os.makedirs(self.folder_path)
         self.return_ser = ""
@@ -51,21 +52,36 @@ class CANReader(Node):
 
             byte_val = list(self.ser.read(dlc))
             speed_val = int.from_bytes(byte_val[2:6], byteorder='big', signed=True)
-            try:
-                self.encoder_cur_speed[max(can_id - 1, 0)] = speed_val
-                footer = self.ser.read(1)
-                timestamp = time.time() - self.start_time
-                target = self.target_value[can_id - 1]
+            footer = self.ser.read(1)
 
-                self.return_ser = (
-                    f"[RAW] header={header.hex()} info={info.hex()} id=0x{can_id:X} data={byte_val} "
-                    f"footer={footer.hex()} | time={timestamp:.3f}s | speed={speed_val} | target={target} | index={can_id-1}"
-                )
-                print(self.return_ser)
-                if speed_val < 2000:
-                    with open(self.file_name, mode='a', newline='') as f:
+            type_id = (byte_val[0] << 8) | byte_val[1]
+            timestamp = time.time() - self.start_time
+            try:
+                index = max(can_id - 1, 0)
+                target = self.target_value[index]
+                if type_id == 0x0F01:  # 速度
+                    speed_val = int.from_bytes(byte_val[2:6], byteorder='big', signed=True)
+                    self.encoder_cur_speed[index] = speed_val
+                    print(f"[SPEED] type=0x{type_id:X}, speed={speed_val}, time={timestamp:.3f}s, target={target}")
+                    if speed_val < 2000:
+                        with open(self.file_name, mode='a', newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow([timestamp, speed_val, target])
+
+                elif type_id == 0x0F08:  # 位置
+                    pos_val = int.from_bytes(byte_val[2:6], byteorder='big', signed=True)
+                    self.encoder_cur_pos[index] = pos_val
+                    print(f"[POSITION] type=0x{type_id:X}, pos={pos_val}, time={timestamp:.3f}s, target={target}")
+                    with open("position.csv", mode='a', newline='') as f:
                         writer = csv.writer(f)
-                        writer.writerow([timestamp, speed_val, target])
+                        writer.writerow([timestamp, pos_val, target])
+
+                # self.return_ser = (
+                #     f"[RAW] header={header.hex()} info={info.hex()} id=0x{can_id:X} data={byte_val} "
+                #     f"footer={footer.hex()} | time={timestamp:.3f}s | speed={speed_val} | target={target} | index={can_id-1}"
+                # )
+                # print(self.return_ser)
+
             except IndexError:
                 self.get_logger().error(f"CAN ID {can_id} is out of range for encoder_cur_speed list.")
                 pass

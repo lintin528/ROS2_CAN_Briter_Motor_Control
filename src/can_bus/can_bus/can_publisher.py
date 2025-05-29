@@ -9,14 +9,23 @@ class CANPublisher(Node):
     def __init__(self):
         super().__init__('CAN_Publisher')
         self.get_logger().info(f'publisher start!')
-        self.topic_name = 'four_wheel_speed'
-        self._four_wheel_speed_publisher = self.create_publisher(Float32MultiArray, self.topic_name, 10)
+        self.topic_name_speed = 'four_wheel_speed'
+        self.topic_name_pos = 'four_wheel_pos'
+        self._four_wheel_speed_publisher = self.create_publisher(Float32MultiArray, self.topic_name_speed, 10)
+        self._four_wheel_pos_publisher = self.create_publisher(Float32MultiArray, self.topic_name_pos, 10)
 
     def publish_can_msg(self, four_wheel_speed_msg:list, delay:float=0.0):
         msg = Float32MultiArray()
         msg.data = four_wheel_speed_msg
         time.sleep(delay)
         self._four_wheel_speed_publisher.publish(msg)
+        self.get_logger().info(f'Published: {msg.data}')
+
+    def publish_can_msg_pos(self, four_wheel_pos_msg:list, delay:float=0.0):
+        msg = Float32MultiArray()
+        msg.data = four_wheel_pos_msg
+        time.sleep(delay)
+        self._four_wheel_pos_publisher.publish(msg)
         self.get_logger().info(f'Published: {msg.data}')
 
 

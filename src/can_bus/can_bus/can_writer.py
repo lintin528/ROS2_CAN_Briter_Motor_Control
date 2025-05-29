@@ -20,6 +20,13 @@ class CANWriter(Node):
             10
         )
 
+        self.subscription_pos = self.create_subscription(
+            Float32MultiArray,
+            'four_wheel_pos',
+            self._keyboard_callback_pos,
+            10
+        )
+
         self.ser = serial.Serial(
             port='/dev/ttyUSB0',
             baudrate=CAN_BAUDRATE,
@@ -75,8 +82,8 @@ class CANWriter(Node):
             return
         print(msg.data)
         for i, val in enumerate(msg.data):
-            if(self.cur_speed[i] != val):
-            # if(True):
+            # if(self.cur_speed[i] != val):
+            if(True):
                 can_id = WHEEL_CAN_IDS[i]
                 speed_bytes = int(val).to_bytes(4, byteorder='big', signed=True)
                 speed_bytes = bytes(CAN_INSTRUCTION_BYTE_SETSPEED) + speed_bytes
@@ -100,11 +107,48 @@ class CANWriter(Node):
                 frame.append(0x55)  # End byte
 
                 self.ser.write(frame)
+                # self.cur_speed[i] = val
+
+                # Debug print
+                hex_str = ' '.join(f'{b:02X}' for b in frame)
+                self.get_logger().info(f'Sent CAN frame: {hex_str} with CAN ID: {can_id}')
+    
+    def _keyboard_callback_pos(self, msg: Float32MultiArray):
+        if len(msg.data) < 1:
+            self.get_logger().warn('Empty CAN message received')
+            return
+        print(msg.data)
+        for i, val in enumerate(msg.data):
+            if(self.cur_speed[i] != val):
+            # if(True):
+                can_id = WHEEL_CAN_IDS[i]
+                pos_bytes = int(val).to_bytes(4, byteorder='big', signed=True)
+                pos_bytes = bytes(CAN_INSTRUCTION_BYTE_SETPOS) + pos_bytes
+                if len(pos_bytes) > 8:
+                    self.get_logger().warn('Too much CAN data, truncating to 8 bytes')
+                    pos_bytes = pos_bytes[:8]
+
+                frame = bytearray()
+                frame.append(0xAA)  # Start byte
+
+                info_byte = 0xC0
+                info_byte |= len(pos_bytes)  # DLC
+                frame.append(info_byte)
+
+                # ID (2 bytes)
+                frame.append(can_id & 0xFF)     # LSB
+                frame.append((can_id >> 8) & 0xFF)  # MSB
+
+                # Data
+                frame.extend(pos_bytes)
+                frame.append(0x55)  # End byte
+
+                self.ser.write(frame)
                 self.cur_speed[i] = val
 
                 # Debug print
                 hex_str = ' '.join(f'{b:02X}' for b in frame)
-                self.get_logger().info(f'Sent CAN frame: {hex_str} with CAN ID: {can_id}')   
+                self.get_logger().info(f'Sent CAN frame: {hex_str} with CAN ID: {can_id}') 
             
 def main(args=None):
     rclpy.init(args=args)
