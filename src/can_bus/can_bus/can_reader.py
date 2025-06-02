@@ -24,15 +24,19 @@ class CANReader(Node):
             baudrate=CAN_BAUDRATE,
             timeout=CAN_TIMEOUT
         )
-        self.folder_path = './data_pos'
+        self.folder_path = './data_pos_speed'
+        self.folder_path_pos = './data_pos_pos'
         self.timestamp_str = ""
         self.file_name = ""
+        self.file_name_pos = ""
         
         self.start_time = time.time()
         self.target_value = [0.0] * len(WHEEL_CAN_IDS)
         self.target_value_pos = 0.0
         if not os.path.exists(self.folder_path):
             os.makedirs(self.folder_path)
+        if not os.path.exists(self.folder_path_pos):
+            os.makedirs(self.folder_path_pos)
         self.return_ser = ""
         self.start_read_thread()
 
@@ -71,10 +75,10 @@ class CANReader(Node):
                 elif type_id == 0x0F08:  # 位置
                     pos_val = int.from_bytes(byte_val[2:6], byteorder='big', signed=True)
                     self.encoder_cur_pos[index] = pos_val
-                    print(f"[POSITION] type=0x{type_id:X}, pos={pos_val}, time={timestamp:.3f}s, target={target}")
-                    with open("position.csv", mode='a', newline='') as f:
+                    print(f"[POSITION] type=0x{type_id:X}, pos={pos_val}, time={timestamp:.3f}s, target_pos={self.target_value_pos}")
+                    with open(self.file_name_pos, mode='a', newline='') as f:
                         writer = csv.writer(f)
-                        writer.writerow([timestamp, pos_val, target])
+                        writer.writerow([timestamp, pos_val, self.target_value_pos])
 
                 # self.return_ser = (
                 #     f"[RAW] header={header.hex()} info={info.hex()} id=0x{can_id:X} data={byte_val} "
@@ -89,11 +93,16 @@ class CANReader(Node):
     def send_encoder_inquiry(self, mode: ReadModeSelect):
         self.timestamp_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
         self.file_name = f"{self.folder_path}/data_{self.timestamp_str}.csv"
+        self.file_name_pos = f"{self.folder_path_pos}/data_pos_{self.timestamp_str}.csv"
         self.file = open(self.file_name, mode='w', newline='')
         with open(self.file_name, mode='w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(['Timestamp', 'Encoder Position', 'Target Position'])
             print(f"Data will be saved to {self.file_name}")
+
+        with open(self.file_name_pos, mode='w', newline='') as p:
+            writer = csv.writer(p)
+            writer.writerow(['Timestamp', 'Encoder Position', 'Target Position'])
 
         for t in range(int(CAN_INQUIRY_DURATION / CAN_INQUIRY_FREQUENCY)):
             for i in range(len(WHEEL_CAN_IDS)):

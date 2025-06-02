@@ -3,6 +3,8 @@ import time
 import threading
 import serial
 import copy
+import numpy as np
+from scipy.interpolate import CubicSpline
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray
 from rclpy.executors import MultiThreadedExecutor
@@ -33,12 +35,60 @@ class CANRecorder(Node):
 
         self.dt = 0.05
         self.total_time = 10
-        self.time_array = np.arange(0, total_time, dt)
+        self.time_array = np.arange(0, self.total_time, self.dt)
+
+        self.get_input = {
+        'step': self.step_input,
+        'three_stage_ramp': self.three_stage_ramp,
+        'sine': self.sine_wave_input,
+        'cubic': self.cubicSpline_input,
+        }
 
         if self.mode == "pos":
             self._timer = self.create_timer(self.record_period, self.timer_callback_pos)
         else:
             self._timer = self.create_timer(self.record_period, self.timer_callback)
+
+    def step_input(self, time, step_time=0.02, amplitude=1):
+        """ generate (Step) input signal """
+        input_signal = np.zeros_like(time)
+        input_signal[time >= step_time] = amplitude
+        return input_signal
+
+    def three_stage_ramp(self, time, t_peak1, t_peak2, slope_up1=1, slope_down=-1, slope_up2=0.5):
+        """ generate (Ramp) input signal """
+        y = np.piecewise(time,
+            [time < t_peak1, 
+            (time >= t_peak1) & (time < t_peak2), 
+            time >= t_peak2],
+            [lambda t: slope_up1 * t,  
+            lambda t: slope_down * (t - t_peak1) + slope_up1 * t_peak1,  
+            lambda t: slope_up2 * (t - t_peak2) + (slope_down * (t_peak2 - t_peak1) + slope_up1 * t_peak1)]
+        )
+        return y
+
+    def sine_wave_input(self, time, frequency=5, amplitude=1):
+        """ generate (Sine Wave) input signal """
+        return amplitude * np.sin(2 * np.pi * frequency * time)
+
+    def cubicSpline_input(self, time):
+        num_control_points = np.random.randint(5, 10)  # 隨機取 5~10 個控制點
+        control_times = np.sort(np.random.choice(time, num_control_points, replace=False))
+        control_values = np.random.uniform(-5, 5, num_control_points)  # 隨機馬達輸入變化
+        
+        spline = CubicSpline(control_times, control_values)
+        return spline(time)
+
+    
+    
+    def get_random_ramp_input(self):
+        """ Generate random ramp input signal """
+        t_peak1 = np.random.uniform(2, 4)  # Random peak time
+        t_peak2 = np.random.uniform(6, 8)
+        slope_up1 = np.random.uniform(100, 200)
+        slope_down = np.random.uniform(-200, -50)
+        slope_up2 = np.random.uniform(50, 200)
+        return self.get_input['three_stage_ramp'](self.time_array, t_peak1, t_peak2, slope_up1, slope_down, slope_up2)
 
     def timer_callback(self):
         self.get_logger().info(f'collect start num {self.counter}')
@@ -75,7 +125,7 @@ class CANRecorder(Node):
         time.sleep(1.0)
         # --------- # Set position # --------- #
         start_time = time.time()
-        input_signal = get_random_ramp_input()
+        input_signal = self.get_random_ramp_input()
         while True:
             current_time = time.time()
             elapsed_time = current_time - start_time
@@ -89,53 +139,6 @@ class CANRecorder(Node):
 
             time.sleep(self.dt)
         # --------- # Set position # --------- #
-
-    def step_input(time, step_time=0.02, amplitude=1):
-        """ generate (Step) input signal """
-        input_signal = np.zeros_like(time)
-        input_signal[time >= step_time] = amplitude
-        return input_signal
-
-    def three_stage_ramp(time, t_peak1, t_peak2, slope_up1=1, slope_down=-1, slope_up2=0.5):
-        """ generate (Ramp) input signal """
-        y = np.piecewise(time,
-            [time < t_peak1, 
-            (time >= t_peak1) & (time < t_peak2), 
-            time >= t_peak2],
-            [lambda t: slope_up1 * t,  
-            lambda t: slope_down * (t - t_peak1) + slope_up1 * t_peak1,  
-            lambda t: slope_up2 * (t - t_peak2) + (slope_down * (t_peak2 - t_peak1) + slope_up1 * t_peak1)]
-        )
-        return y
-
-    def sine_wave_input(time, frequency=5, amplitude=1):
-        """ generate (Sine Wave) input signal """
-        return amplitude * np.sin(2 * np.pi * frequency * time)
-
-    def cubicSpline_input(time):
-        num_control_points = np.random.randint(5, 10)  # 隨機取 5~10 個控制點
-        control_times = np.sort(np.random.choice(time, num_control_points, replace=False))
-        control_values = np.random.uniform(-5, 5, num_control_points)  # 隨機馬達輸入變化
-        
-        spline = CubicSpline(control_times, control_values)
-        return spline(time)
-
-    get_input = {
-        'step': step_input,
-        'three_stage_ramp': three_stage_ramp,
-        'sine': sine_wave_input,
-        'cubic': cubicSpline_input,
-    }
-    
-    def get_random_ramp_input(self):
-        """ Generate random ramp input signal """
-        t_peak1 = np.random.uniform(2, 4)  # Random peak time
-        t_peak2 = np.random.uniform(6, 8)
-        slope_up1 = np.random.uniform(100, 200)
-        slope_down = np.random.uniform(-200, -50)
-        slope_up2 = np.random.uniform(50, 200)
-        return self.get_input[three_stage_ramp](self.time_array, t_peak1, t_peak2, slope_up1, slope_down, slope_up2)
-
 def main(args=None):
     rclpy.init(args=args)
 
