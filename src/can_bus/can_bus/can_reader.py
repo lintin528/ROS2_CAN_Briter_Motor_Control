@@ -66,7 +66,7 @@ class CANReader(Node):
                 if type_id == 0x0F01:  # 速度
                     speed_val = int.from_bytes(byte_val[2:6], byteorder='big', signed=True)
                     self.encoder_cur_speed[index] = speed_val
-                    print(f"[SPEED] type=0x{type_id:X}, speed={speed_val}, time={timestamp:.3f}s, target={target}")
+                    # print(f"[SPEED] type=0x{type_id:X}, speed={speed_val}, time={timestamp:.3f}s, target={target}")
                     if speed_val < 2000:
                         with open(self.file_name, mode='a', newline='') as f:
                             writer = csv.writer(f)
@@ -91,10 +91,12 @@ class CANReader(Node):
                 pass
 
     def send_encoder_inquiry(self, mode: ReadModeSelect):
+        self.start_time = time.time()
         self.timestamp_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
         self.file_name = f"{self.folder_path}/data_{self.timestamp_str}.csv"
         self.file_name_pos = f"{self.folder_path_pos}/data_pos_{self.timestamp_str}.csv"
-        self.file = open(self.file_name, mode='w', newline='')
+        # self.file = open(self.file_name, mode='w', newline='')
+        self.init_motor_pos()
         with open(self.file_name, mode='w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(['Timestamp', 'Encoder Position', 'Target Position'])
@@ -130,6 +132,27 @@ class CANReader(Node):
                 self.ser.write(frame)
             time.sleep(CAN_INQUIRY_FREQUENCY)
     
+    def init_motor_pos(self):
+        for i in range(len(WHEEL_CAN_IDS)):
+                can_id = WHEEL_CAN_IDS[i]
+                ins_bytes = bytes(CAN_INSTRUCTION_BYTE_INQUIRY_DICT['CAN_INSTRUCTION_BYTE_INIT_POS'])
+
+                frame = bytearray()
+                frame.append(0xAA)  # Start byte
+
+                info_byte = 0xC0
+                info_byte |= len(ins_bytes)  # DLC
+                frame.append(info_byte)
+
+                # ID (2 bytes)
+                frame.append(can_id & 0xFF)     # LSB
+                frame.append((can_id >> 8) & 0xFF)  # MSB
+
+                frame.extend(ins_bytes)
+                frame.append(0x55)
+
+                self.ser.write(frame)
+
     def start_read_thread(self):
         self.read_thread = threading.Thread(target=self.read_loop, daemon=False)
         self.read_thread.start()

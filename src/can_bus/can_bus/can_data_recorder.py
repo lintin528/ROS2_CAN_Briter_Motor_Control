@@ -85,9 +85,9 @@ class CANRecorder(Node):
         """ Generate random ramp input signal """
         t_peak1 = np.random.uniform(2, 4)  # Random peak time
         t_peak2 = np.random.uniform(6, 8)
-        slope_up1 = np.random.uniform(100, 200)
-        slope_down = np.random.uniform(-200, -50)
-        slope_up2 = np.random.uniform(50, 200)
+        slope_up1 = np.random.uniform(500, 1000)
+        slope_down = np.random.uniform(-2000, -500)
+        slope_up2 = np.random.uniform(500, 2000)
         return self.get_input['three_stage_ramp'](self.time_array, t_peak1, t_peak2, slope_up1, slope_down, slope_up2)
 
     def timer_callback(self):
