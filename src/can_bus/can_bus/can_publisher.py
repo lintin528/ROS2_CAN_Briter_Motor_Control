@@ -17,14 +17,14 @@ class CANPublisher(Node):
     def publish_can_msg(self, four_wheel_speed_msg:list, delay:float=0.0):
         msg = Float32MultiArray()
         msg.data = four_wheel_speed_msg
-        time.sleep(delay)
+        # time.sleep(delay)
         self._four_wheel_speed_publisher.publish(msg)
         # self.get_logger().info(f'Published: {msg.data}')
 
     def publish_can_msg_pos(self, four_wheel_pos_msg:list, delay:float=0.0):
         msg = Float32MultiArray()
         msg.data = four_wheel_pos_msg
-        time.sleep(delay)
+        # time.sleep(delay)
         self._four_wheel_pos_publisher.publish(msg)
         # self.get_logger().info(f'Published: {msg.data}')
 

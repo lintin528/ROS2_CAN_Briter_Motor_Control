@@ -42,25 +42,26 @@ class CANReader(Node):
 
     def read_can_response(self):
         while self.ser.in_waiting:
-            header = self.ser.read(1)
-            if header != b'\xAA':
-                continue
-
-            info = self.ser.read(1)
-            dlc = info[0] & 0x0F  # DLC
-            is_standard = not (info[0] & 0x20)
-
-            id_lsb = self.ser.read(1)[0]
-            id_msb = self.ser.read(1)[0]
-            can_id = (id_msb << 8) | id_lsb
-
-            byte_val = list(self.ser.read(dlc))
-            speed_val = int.from_bytes(byte_val[2:6], byteorder='big', signed=True)
-            footer = self.ser.read(1)
-
-            type_id = (byte_val[0] << 8) | byte_val[1]
-            timestamp = time.time() - self.start_time
             try:
+                header = self.ser.read(1)
+                if header != b'\xAA':
+                    continue
+
+                info = self.ser.read(1)
+                dlc = info[0] & 0x0F  # DLC
+                is_standard = not (info[0] & 0x20)
+
+                id_lsb = self.ser.read(1)[0]
+                id_msb = self.ser.read(1)[0]
+                can_id = (id_msb << 8) | id_lsb
+
+                byte_val = list(self.ser.read(dlc))
+                speed_val = int.from_bytes(byte_val[2:6], byteorder='big', signed=True)
+                footer = self.ser.read(1)
+
+                type_id = (byte_val[0] << 8) | byte_val[1]
+                timestamp = time.time() - self.start_time
+            
                 index = max(can_id - 1, 0)
                 target = self.target_value[index]
                 if type_id == 0x0F01:  # 速度
@@ -75,7 +76,7 @@ class CANReader(Node):
                 elif type_id == 0x0F08:  # 位置
                     pos_val = int.from_bytes(byte_val[2:6], byteorder='big', signed=True)
                     self.encoder_cur_pos[index] = pos_val
-                    print(f"[POSITION] type=0x{type_id:X}, pos={pos_val}, time={timestamp:.3f}s, target_pos={self.target_value_pos}")
+                    # print(f"[POSITION] type=0x{type_id:X}, pos={pos_val}, time={timestamp:.3f}s, target_pos={self.target_value_pos}")
                     with open(self.file_name_pos, mode='a', newline='') as f:
                         writer = csv.writer(f)
                         writer.writerow([timestamp, pos_val, self.target_value_pos])
@@ -96,7 +97,6 @@ class CANReader(Node):
         self.file_name = f"{self.folder_path}/data_{self.timestamp_str}.csv"
         self.file_name_pos = f"{self.folder_path_pos}/data_pos_{self.timestamp_str}.csv"
         # self.file = open(self.file_name, mode='w', newline='')
-        self.init_motor_pos()
         with open(self.file_name, mode='w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(['Timestamp', 'Encoder Position', 'Target Position'])

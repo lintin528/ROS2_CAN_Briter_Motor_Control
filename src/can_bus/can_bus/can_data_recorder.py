@@ -22,7 +22,7 @@ class CANRecorder(Node):
         self.get_logger().info(f"Using mode: {self.mode}")
 
         self.get_logger().info(f'recorder start!')
-        self.record_period = 8
+        self.record_period = 15
         self.target_speed = [1000.0, 0.0, 0.0, 0.0]
         self.init_speed = copy.deepcopy(DEFAULT_FOUR_WHEEL_SPEED)
 
@@ -79,16 +79,17 @@ class CANRecorder(Node):
         spline = CubicSpline(control_times, control_values)
         return spline(time)
 
-    
-    
     def get_random_ramp_input(self):
         """ Generate random ramp input signal """
         t_peak1 = np.random.uniform(2, 4)  # Random peak time
         t_peak2 = np.random.uniform(6, 8)
-        slope_up1 = np.random.uniform(500, 1000)
-        slope_down = np.random.uniform(-2000, -500)
-        slope_up2 = np.random.uniform(500, 2000)
+        slope_up1 = np.random.uniform(200000, 320000)
+        slope_down = np.random.uniform(-360000, -200000)
+        slope_up2 = np.random.uniform(200000, 320000)
         return self.get_input['three_stage_ramp'](self.time_array, t_peak1, t_peak2, slope_up1, slope_down, slope_up2)
+
+    def constant_input(self, value=160000.0):
+        return np.full_like(self.time_array, value)
 
     def timer_callback(self):
         self.get_logger().info(f'collect start num {self.counter}')
@@ -111,7 +112,9 @@ class CANRecorder(Node):
         self.can_msg_publisher.publish_can_msg(self.init_speed)
         self.can_msg_publisher.publish_can_msg_pos(self.init_pos)
         self.can_reader.target_value = copy.deepcopy(self.init_speed)
-        time.sleep(1.0)
+        self.can_reader.target_value_pos = copy.deepcopy(self.init_pos[0])
+        self.can_reader.init_motor_pos()
+        time.sleep(2.0)
         threading.Thread(
                 target=self.can_reader.send_encoder_inquiry,
                 args=(ReadModeSelect.SPEED,),
@@ -126,6 +129,10 @@ class CANRecorder(Node):
         # --------- # Set position # --------- #
         start_time = time.time()
         input_signal = self.get_random_ramp_input()
+
+        # input_signal = self.constant_input()
+        # self.can_reader.target_value_pos = copy.deepcopy(input_signal[0])
+        # self.can_msg_publisher.publish_can_msg_pos([float(input_signal[0])])
         while True:
             current_time = time.time()
             elapsed_time = current_time - start_time

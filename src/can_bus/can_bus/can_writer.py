@@ -119,8 +119,8 @@ class CANWriter(Node):
             return
         print(msg.data)
         for i, val in enumerate(msg.data):
-            if(self.cur_speed[i] != val):
-            # if(True):
+            # if(self.cur_speed[i] != val):
+            if(True):
                 can_id = WHEEL_CAN_IDS[i]
                 pos_bytes = int(val).to_bytes(4, byteorder='big', signed=True)
                 pos_bytes = bytes(CAN_INSTRUCTION_BYTE_SETPOS) + pos_bytes
