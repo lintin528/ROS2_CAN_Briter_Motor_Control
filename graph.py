@@ -1,34 +1,28 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
+# 讀取 CSV
+df = pd.read_csv('./train_data/merged_20250619_032924.csv')
 
-df1 = pd.read_csv('./data_pos_pos/data_pos_20250603_110328.csv')
-df2 = pd.read_csv('./data_pos_speed/data_20250603_110328.csv')
+# 建立主圖表和副 Y 軸
+fig, ax1 = plt.subplots()
 
-# plt.figure(figsize=(12, 6))
-# plt.plot(df['Timestamp'], df['Encoder Position'], label='Encoder Position', color='blue')
-# plt.plot(df['Timestamp'], df['Target Position'], label='Target Position', linestyle='--', color='red')
-# plt.plot(df2['Timestamp'], df2['Encoder Position'], label='apeed', color='green')
+# 主 Y 軸：Position
+color = 'tab:blue'
+ax1.set_xlabel('Time Step')
+ax1.set_ylabel('Position', color=color)
+ax1.plot(df.index, df['Position'], color=color, label='Position')
+ax1.tick_params(axis='y', labelcolor=color)
 
-fig, ax1 = plt.subplots(figsize=(12, 6))
-color1 = 'tab:blue'
-ax1.set_xlabel('Time (s)')
-ax1.set_ylabel('Encoder 1 Position', color=color1)
-ax1.plot(df1['Timestamp'], df1['Encoder Position'], color=color1, label='Encoder Position')
-ax1.tick_params(axis='y', labelcolor=color1)
+# 副 Y 軸：Speed
+ax2 = ax1.twinx()
+color = 'tab:red'
+ax2.set_ylabel('Speed', color=color)
+ax2.plot(df.index, df['Speed'], color=color, label='Speed')
+ax2.tick_params(axis='y', labelcolor=color)
 
-# 建立第二個 y 軸（右邊的 y 軸）
-ax2 = ax1.twinx()  # 共享 x 軸
-
-color2 = 'tab:green'
-ax2.set_ylabel('Encoder 2 Position', color=color2)
-ax2.plot(df2['Timestamp'], df2['Encoder Position'], color=color2, label='speed')
-ax2.tick_params(axis='y', labelcolor=color2)
-
-plt.title('Encoder Position over Time')
-plt.xlabel('Time (s)')
-plt.ylabel('Encoder Position')
+# 顯示圖表
+plt.title('Position and Speed Over Time')
 plt.grid(True)
-plt.legend()
-
+plt.tight_layout()
 plt.show()

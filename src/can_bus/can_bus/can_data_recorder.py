@@ -40,7 +40,7 @@ class CANRecorder(Node):
         self.get_input = {
         'step': self.step_input,
         'three_stage_ramp': self.three_stage_ramp,
-        'sine': self.sine_wave_input,
+        'sin_cos': self.sin_cos_input,
         'cubic': self.cubicSpline_input,
         }
 
@@ -67,9 +67,9 @@ class CANRecorder(Node):
         )
         return y
 
-    def sine_wave_input(self, time, frequency=5, amplitude=1):
-        """ generate (Sine Wave) input signal """
-        return amplitude * np.sin(2 * np.pi * frequency * time)
+    def sin_cos_input(self, time, A_sin=1.0, A_cos=0.5, f_sin=1.0, f_cos=1.0, phase_sin=0.0, phase_cos=0.0):
+        y = A_sin * np.sin(2 * np.pi * f_sin * time + phase_sin) + A_cos * np.cos(2 * np.pi * f_cos * time + phase_cos)
+        return y
 
     def cubicSpline_input(self, time):
         num_control_points = np.random.randint(5, 10)  # 隨機取 5~10 個控制點
@@ -87,6 +87,18 @@ class CANRecorder(Node):
         slope_down = np.random.uniform(-360000, -200000)
         slope_up2 = np.random.uniform(200000, 320000)
         return self.get_input['three_stage_ramp'](self.time_array, t_peak1, t_peak2, slope_up1, slope_down, slope_up2)
+
+    def get_random_sin_cos_input(self):
+        """ Generate random sin + cos input signal """
+        A_sin = np.random.uniform(150000, 250000)
+        A_cos = np.random.uniform(150000, 250000)
+        frequencies = [0.1, 0.2, 0.4]
+
+        f_sin = np.random.choice(frequencies)
+        f_cos = np.random.choice(frequencies)
+        phase_sin = np.random.uniform(0, 2 * np.pi)
+        phase_cos = np.random.uniform(0, 2 * np.pi)
+        return self.get_input['sin_cos'](self.time_array, A_sin, A_cos, f_sin, f_cos, phase_sin, phase_cos)
 
     def constant_input(self, value=160000.0):
         return np.full_like(self.time_array, value)
@@ -128,11 +140,8 @@ class CANRecorder(Node):
         time.sleep(1.0)
         # --------- # Set position # --------- #
         start_time = time.time()
-        input_signal = self.get_random_ramp_input()
-
-        # input_signal = self.constant_input()
-        # self.can_reader.target_value_pos = copy.deepcopy(input_signal[0])
-        # self.can_msg_publisher.publish_can_msg_pos([float(input_signal[0])])
+        # input_signal = self.get_random_ramp_input()
+        input_signal = self.get_random_sin_cos_input()
         while True:
             current_time = time.time()
             elapsed_time = current_time - start_time
@@ -144,7 +153,7 @@ class CANRecorder(Node):
             self.can_reader.target_value_pos = copy.deepcopy(input_signal[index])
             self.can_msg_publisher.publish_can_msg_pos([input_signal[index]])
 
-            time.sleep(self.dt)
+            time.sleep(self.dt*10)
         # --------- # Set position # --------- #
 def main(args=None):
     rclpy.init(args=args)

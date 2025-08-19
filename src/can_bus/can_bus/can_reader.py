@@ -24,8 +24,8 @@ class CANReader(Node):
             baudrate=CAN_BAUDRATE,
             timeout=CAN_TIMEOUT
         )
-        self.folder_path = './data_pos_speed'
-        self.folder_path_pos = './data_pos_pos'
+        self.folder_path = './data_pos_speed_sin'
+        self.folder_path_pos = './data_pos_pos_sin'
         self.timestamp_str = ""
         self.file_name = ""
         self.file_name_pos = ""
@@ -77,9 +77,12 @@ class CANReader(Node):
                     pos_val = int.from_bytes(byte_val[2:6], byteorder='big', signed=True)
                     self.encoder_cur_pos[index] = pos_val
                     # print(f"[POSITION] type=0x{type_id:X}, pos={pos_val}, time={timestamp:.3f}s, target_pos={self.target_value_pos}")
-                    with open(self.file_name_pos, mode='a', newline='') as f:
-                        writer = csv.writer(f)
-                        writer.writerow([timestamp, pos_val, self.target_value_pos])
+                    if pos_val < 2000000 and pos_val > -2000000:
+                        with open(self.file_name_pos, mode='a', newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow([timestamp, pos_val, self.target_value_pos])
+                    else:
+                        self.get_logger().warn(f"Position value {pos_val} is out of expected range for CAN ID {can_id}.")
 
                 # self.return_ser = (
                 #     f"[RAW] header={header.hex()} info={info.hex()} id=0x{can_id:X} data={byte_val} "
